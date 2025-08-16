@@ -3,18 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>마인크래프트 계산기 PRO</title>
+  <title>청크 & 네더 계산기 PRO</title>
   <style>
     body {
       margin: 0;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      background: #f5f5f7;
+      background: #f2f2f7;
       color: #1c1c1e;
     }
     header {
       display: flex;
       background: #1c1c1e;
-      color: #fff;
       font-weight: 600;
     }
     header div {
@@ -22,13 +21,15 @@
       text-align: center;
       padding: 14px;
       cursor: pointer;
+      color: #aaa;
     }
     header div.active {
-      background: #ff3b30;
+      background: #fff;
+      color: #ff3b30;
     }
     main {
       padding: 20px;
-      max-width: 540px;
+      max-width: 600px;
       margin: auto;
       text-align: center;
     }
@@ -36,7 +37,7 @@
       padding: 12px;
       font-size: 16px;
       width: 100%;
-      margin: 8px 0;
+      margin: 6px 0;
       border-radius: 12px;
       border: 1px solid #ccc;
     }
@@ -54,7 +55,7 @@
       margin-top: 16px;
       background: #fff;
       border: 1px solid #ccc;
-      touch-action: none;
+      border-radius: 12px;
     }
     .hidden {
       display: none;
@@ -68,17 +69,14 @@
     <div id="tabSaved" onclick="switchTab('saved')">저장 좌표</div>
   </header>
   <main>
-    <!-- 청크 계산기 -->
     <section id="chunk" class="tab">
       <h2>청크 계산기</h2>
       <input id="x" placeholder="X 좌표">
       <input id="z" placeholder="Z 좌표">
       <button onclick="calculateChunk()">계산</button>
-      <button onclick="saveCoords()">저장</button>
       <div class="result" id="chunkResult"></div>
-      <canvas id="map" width="320" height="320"></canvas>
+      <canvas id="map" width="352" height="352"></canvas>
     </section>
-    <!-- 네더 포탈 계산기 -->
     <section id="nether" class="tab hidden">
       <h2>네더 포탈 시뮬레이터</h2>
       <input id="overX" placeholder="오버월드 X">
@@ -89,52 +87,93 @@
       <button onclick="toOverworld()">→ 오버월드 좌표</button>
       <div class="result" id="netherResult"></div>
     </section>
-    <!-- 저장된 좌표 -->
     <section id="saved" class="tab hidden">
       <h2>저장된 좌표</h2>
       <ul id="coordList"></ul>
     </section>
   </main>
   <script>
-    let activeTab = 'chunk';
-    let panX = 0, panY = 0, zoom = 1;
+    let centerChunk = { x: 0, z: 0 };
+    let current = { x: 0, z: 0 };
+
+    const canvas = document.getElementById('map');
+    const ctx = canvas.getContext('2d');
+    canvas.addEventListener('click', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const offsetX = e.clientX - rect.left;
+      const offsetZ = e.clientY - rect.top;
+      const gridSize = 32;
+      const dx = Math.floor((offsetX - canvas.width / 2) / gridSize);
+      const dz = Math.floor((offsetZ - canvas.height / 2) / gridSize);
+      const clickedChunk = {
+        x: centerChunk.x + dx,
+        z: centerChunk.z + dz
+      };
+      const newX = clickedChunk.x * 16 + 8;
+      const newZ = clickedChunk.z * 16 + 8;
+      document.getElementById('x').value = newX;
+      document.getElementById('z').value = newZ;
+      calculateChunk();
+    });
 
     function switchTab(tab) {
       document.querySelectorAll('.tab').forEach(t => t.classList.add('hidden'));
-      document.querySelector(`#${tab}`).classList.remove('hidden');
+      document.getElementById(tab).classList.remove('hidden');
       document.querySelectorAll('header div').forEach(d => d.classList.remove('active'));
-      document.querySelector(`#tab${capitalize(tab)}`).classList.add('active');
-      activeTab = tab;
-      if (tab === 'saved') loadCoords();
-    }
-
-    function capitalize(str) {
-      return str.charAt(0).toUpperCase() + str.slice(1);
+      document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
     }
 
     function calculateChunk() {
       const x = parseInt(document.getElementById('x').value);
       const z = parseInt(document.getElementById('z').value);
+      if (isNaN(x) || isNaN(z)) return;
+      current = { x, z };
       const chunkX = Math.floor(x / 16);
       const chunkZ = Math.floor(z / 16);
+      const startX = chunkX * 16;
+      const startZ = chunkZ * 16;
+      const endX = startX + 15;
+      const endZ = startZ + 15;
+      centerChunk = { x: chunkX, z: chunkZ };
       document.getElementById('chunkResult').innerHTML =
-        `청크: (${chunkX}, ${chunkZ})<br>시작: (${chunkX*16}, ${chunkZ*16})<br>끝: (${chunkX*16+15}, ${chunkZ*16+15})`;
-      drawMap(chunkX, chunkZ);
+        `현재 좌표: (${x}, ${z})<br>
+         청크 위치: (${chunkX}, ${chunkZ})<br>
+         시작: X=${startX}, Z=${startZ}<br>
+         끝: X=${endX}, Z=${endZ}`;
+      drawMap();
     }
 
-    function drawMap(cx, cz) {
-      const ctx = document.getElementById('map').getContext('2d');
-      ctx.clearRect(0, 0, 320, 320);
-      const cell = 16 * zoom;
-      for (let x = -5; x <= 5; x++) {
-        for (let z = -5; z <= 5; z++) {
-          const px = 160 + (x * cell) + panX;
-          const pz = 160 + (z * cell) + panY;
-          ctx.strokeStyle = '#ccc';
-          ctx.strokeRect(px, pz, cell, cell);
-          if (x === 0 && z === 0) {
+    function drawMap() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const gridSize = 32;
+      for (let dx = -5; dx <= 5; dx++) {
+        for (let dz = -5; dz <= 5; dz++) {
+          const cx = centerChunk.x + dx;
+          const cz = centerChunk.z + dz;
+          const x = canvas.width / 2 + dx * gridSize;
+          const z = canvas.height / 2 + dz * gridSize;
+          ctx.strokeStyle = '#bbb';
+          ctx.strokeRect(x, z, gridSize, gridSize);
+          ctx.fillStyle = '#333';
+          ctx.font = '10px sans-serif';
+          ctx.fillText(`${cx},${cz}`, x + 2, z + 12);
+
+          const startX = cx * 16;
+          const startZ = cz * 16;
+          if (
+            current.x >= startX && current.x <= startX + 15 &&
+            current.z >= startZ && current.z <= startZ + 15
+          ) {
             ctx.fillStyle = '#ff3b30';
-            ctx.fillRect(px + 2, pz + 2, cell - 4, cell - 4);
+            ctx.fillRect(x + 2, z + 2, gridSize - 4, gridSize - 4);
+            const relX = current.x - startX;
+            const relZ = current.z - startZ;
+            const dotX = x + (relX / 16) * gridSize;
+            const dotZ = z + (relZ / 16) * gridSize;
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.arc(dotX, dotZ, 3, 0, Math.PI * 2);
+            ctx.fill();
           }
         }
       }
@@ -147,7 +186,6 @@
         document.getElementById('netherResult').innerText = `네더: (${Math.floor(x/8)}, ${Math.floor(z/8)})`;
       }
     }
-
     function toOverworld() {
       const x = parseInt(document.getElementById('netherX').value);
       const z = parseInt(document.getElementById('netherZ').value);
@@ -155,51 +193,6 @@
         document.getElementById('netherResult').innerText = `오버월드: (${x*8}, ${z*8})`;
       }
     }
-
-    function saveCoords() {
-      const x = document.getElementById('x').value;
-      const z = document.getElementById('z').value;
-      if (!x || !z) return;
-      const history = JSON.parse(localStorage.getItem('coords') || '[]');
-      history.push({x, z});
-      localStorage.setItem('coords', JSON.stringify(history));
-    }
-
-    function loadCoords() {
-      const list = document.getElementById('coordList');
-      list.innerHTML = '';
-      const history = JSON.parse(localStorage.getItem('coords') || '[]');
-      history.slice(-10).reverse().forEach(({x, z}) => {
-        const li = document.createElement('li');
-        li.innerText = `X: ${x}, Z: ${z}`;
-        list.appendChild(li);
-      });
-    }
-
-    const canvas = document.getElementById('map');
-    let isDragging = false, lastX, lastY;
-    canvas.addEventListener('mousedown', e => {
-      isDragging = true;
-      lastX = e.offsetX;
-      lastY = e.offsetY;
-    });
-    canvas.addEventListener('mousemove', e => {
-      if (!isDragging) return;
-      const dx = e.offsetX - lastX;
-      const dy = e.offsetY - lastY;
-      panX += dx;
-      panY += dy;
-      lastX = e.offsetX;
-      lastY = e.offsetY;
-      calculateChunk();
-    });
-    canvas.addEventListener('mouseup', () => isDragging = false);
-    canvas.addEventListener('wheel', e => {
-      e.preventDefault();
-      zoom *= (e.deltaY < 0) ? 1.1 : 0.9;
-      zoom = Math.max(0.5, Math.min(4, zoom));
-      calculateChunk();
-    });
   </script>
 </body>
 </html>

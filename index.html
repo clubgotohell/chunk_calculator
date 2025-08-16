@@ -174,14 +174,65 @@
     }
 
     function renderChunk(){
+      // helpers for pretty labels (no overlap)
+      function roundRect(c,x,y,w,h,r){
+        c.beginPath();
+        c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r);
+        c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath();
+      }
+      function chipTL(text,x,y){ // draw small pill at top-left anchor
+        ctx.save();
+        ctx.font = '12px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+        const w = ctx.measureText(text).width + 12; const h = 20;
+        ctx.fillStyle = 'rgba(255,255,255,.96)'; ctx.strokeStyle = '#d1d1d6'; ctx.lineWidth = 1;
+        roundRect(ctx,x,y,w,h,8); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#6e6e73'; ctx.textBaseline = 'middle'; ctx.fillText(text, x+6, y+h/2+0.5);
+        ctx.restore();
+      }
+      function chipTR(text,x,y){ // anchor at top-right (x,y is right edge)
+        ctx.save();
+        ctx.font = '12px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+        const w = ctx.measureText(text).width + 12; const h = 20; const left = x - w;
+        ctx.fillStyle = 'rgba(255,255,255,.96)'; ctx.strokeStyle = '#d1d1d6'; ctx.lineWidth = 1;
+        roundRect(ctx,left,y,w,h,8); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#6e6e73'; ctx.textBaseline = 'middle'; ctx.fillText(text, left+6, y+h/2+0.5);
+        ctx.restore();
+      }
+
       // clear
       ctx.clearRect(0,0,canvas.width,canvas.height);
 
-      // draw outer label axes
-      ctx.fillStyle = '#6e6e73';
-      ctx.font = '12px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
-      ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-      ctx.fillText(`X ${state.endX}`, 8, 8);                 // top-left X end
+      const GX = PAD; const GY = PAD;           // grid origin
+      const gridW = CELL*GRID; const gridH = CELL*GRID;
+
+      // grid bg + border
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(GX-1, GY-1, gridW+2, gridH+2);
+      ctx.lineWidth = 1; ctx.strokeStyle = '#d1d1d6';
+      for(let r=0;r<GRID;r++){
+        for(let c=0;c<GRID;c++){
+          const x = GX + c*CELL; const y = GY + r*CELL;
+          ctx.strokeRect(x,y,CELL,CELL);
+        }
+      }
+      ctx.lineWidth = 2; ctx.strokeStyle = '#8e8e93';
+      ctx.strokeRect(GX, GY, gridW, gridH);
+
+      // axis labels as non-overlapping chips
+      chipTL(`X ${state.endX}`, GX-10, GY-28);             // above-left of grid
+      chipTL(`X ${state.startX}`, GX-10, GY+gridH+8);      // left-bottom below grid
+      chipTL(`Z ${state.startZ}`, GX,     GY+gridH+8);     // bottom-left below grid
+      chipTR(`Z ${state.endZ}`, GX+gridW, GY+gridH+8);     // bottom-right below grid
+
+      // highlight selected block (player position inside chunk)
+      const selC = state.x - state.startX; // 0..15
+      const selR = state.z - state.startZ; // 0..15
+      if(selC>=0 && selC<16 && selR>=0 && selR<16){
+        const sx = GX + selC*CELL; const sy = GY + selR*CELL;
+        ctx.fillStyle = 'rgba(229,57,53,.9)';
+        ctx.fillRect(sx+2, sy+2, CELL-4, CELL-4);
+      }
+    }`, 8, 8);                 // top-left X end
       ctx.textBaseline = 'bottom';
       ctx.fillText(`X ${state.startX}`, 8, canvas.height-8); // bottom-left X start
       ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';

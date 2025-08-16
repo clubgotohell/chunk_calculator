@@ -1,0 +1,67 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>마인크래프트 청크 계산기</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #121212;
+      color: #fff;
+      text-align: center;
+      padding: 50px;
+    }
+    input {
+      padding: 10px;
+      margin: 10px;
+      border-radius: 5px;
+      border: none;
+    }
+    button {
+      padding: 10px 20px;
+      margin: 10px;
+      border: none;
+      border-radius: 5px;
+      background: #4CAF50;
+      color: #fff;
+      cursor: pointer;
+    }
+    .result {
+      margin-top: 20px;
+      font-size: 18px;
+      color: #ffcc00;
+    }
+  </style>
+</head>
+<body>
+  <h1>마인크래프트 청크 계산기</h1>
+  <p>좌표(X, Z)를 입력하세요</p>
+  <input type="number" id="x" placeholder="X 좌표">
+  <input type="number" id="z" placeholder="Z 좌표">
+  <br>
+  <button onclick="calculate()">계산하기</button>
+  <div class="result" id="result"></div>
+
+  <script>
+    function calculate() {
+      let x = parseInt(document.getElementById('x').value);
+      let z = parseInt(document.getElementById('z').value);
+      if (isNaN(x) || isNaN(z)) {
+        document.getElementById('result').innerText = "좌표를 올바르게 입력하세요.";
+        return;
+      }
+      let chunkX = Math.floor(x / 16);
+      let chunkZ = Math.floor(z / 16);
+      let startX = chunkX * 16;
+      let startZ = chunkZ * 16;
+      let endX = startX + 15;
+      let endZ = startZ + 15;
+      document.getElementById('result').innerHTML =
+        `현재 청크 좌표: (${chunkX}, ${chunkZ})<br>
+         청크 시작점: X=${startX}, Z=${startZ}<br>
+         청크 끝점: X=${endX}, Z=${endZ}`;
+    }
+  </script>
+</body>
+</html>

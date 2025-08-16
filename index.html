@@ -1,13 +1,14 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>청크 · 네더 계산기 — Stable</title>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>청크 · 네더 계산기 — Responsive Fix</title>
   <style>
     :root{
       --bg:#f2f2f7; --card:#fff; --ink:#1c1c1e; --muted:#6e6e73;
-      --accent:#e53935; --grid:#d1d1d6; --grid-strong:#8e8e93; --r:16px;
+      --accent:#e53935; --r:16px;
+      --grid:#d1d1d6; --grid-strong:#8e8e93;
     }
     *{box-sizing:border-box}
     body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink)}
@@ -26,7 +27,7 @@
     .out{margin-top:16px;line-height:1.6;text-align:center}
     .out strong{color:#2c2c2e}
     .canvaswrap{margin-top:18px;padding:18px;border:1px solid #e5e5ea;border-radius:var(--r);background:#fff}
-    canvas{display:block;margin:0 auto;max-width:100%;background:#fff}
+    canvas{display:block;margin:0 auto;background:#fff;touch-action:manipulation}
     .hint{color:var(--muted);text-align:center;margin-top:8px;font-size:13px}
     .hide{display:none}
     .radios{display:flex;gap:16px;justify-content:center;margin-bottom:8px}
@@ -45,12 +46,12 @@
       <h1>청크 계산기</h1>
       <p class="sub">좌표를 입력하면 현재 청크(16×16)와 블록 위치를 시각화합니다.</p>
       <div class="row">
-        <input type="number" id="x" placeholder="X 좌표" inputmode="numeric" />
-        <input type="number" id="z" placeholder="Z 좌표" inputmode="numeric" />
+        <input type="number" id="x" placeholder="X 좌표" inputmode="numeric"/>
+        <input type="number" id="z" placeholder="Z 좌표" inputmode="numeric"/>
       </div>
       <button class="cta" id="btnChunk">계산하기</button>
       <div id="chunkOut" class="out"></div>
-      <div class="canvaswrap">
+      <div class="canvaswrap" id="canvasWrap">
         <canvas id="chunkCanvas"></canvas>
         <div class="hint">격자를 클릭하면 해당 블록 좌표로 이동합니다. (16×16: 현재 청크)</div>
       </div>
@@ -61,12 +62,12 @@
       <h1>네더 계산기</h1>
       <p class="sub">오버월드 ↔ 네더 좌표를 변환합니다. (X/Z)</p>
       <div class="radios">
-        <label><input type="radio" name="dir" value="toNether" checked /> 오버월드 → 네더</label>
-        <label><input type="radio" name="dir" value="toOver" /> 네더 → 오버월드</label>
+        <label><input type="radio" name="dir" value="toNether" checked/> 오버월드 → 네더</label>
+        <label><input type="radio" name="dir" value="toOver"/> 네더 → 오버월드</label>
       </div>
       <div class="row">
-        <input type="number" id="nx" placeholder="X 좌표" inputmode="numeric" />
-        <input type="number" id="nz" placeholder="Z 좌표" inputmode="numeric" />
+        <input type="number" id="nx" placeholder="X 좌표" inputmode="numeric"/>
+        <input type="number" id="nz" placeholder="Z 좌표" inputmode="numeric"/>
       </div>
       <button class="cta" id="btnNether">변환하기</button>
       <div id="netherOut" class="out"></div>
@@ -92,22 +93,35 @@
     navChunk.addEventListener('click', ()=>show('chunk'));
     navNether.addEventListener('click', ()=>show('nether'));
 
-    // ---------- canvas setup (crisp on retina) ----------
+    // ---------- canvas (responsive square) ----------
+    const wrap = $('canvasWrap');
     const canvas = $('chunkCanvas');
-    const CSS_SIZE = 520;               // layout size
-    const DPR = Math.max(1, Math.min(2, window.devicePixelRatio || 1)); // cap to 2x
-    canvas.width = CSS_SIZE * DPR;
-    canvas.height = CSS_SIZE * DPR;
-    canvas.style.width = CSS_SIZE + 'px';
-    canvas.style.height = CSS_SIZE + 'px';
     const ctx = canvas.getContext('2d');
-    ctx.scale(DPR, DPR);
+
+    const PAD = 40;   // padding inside canvas around grid
+    const GRID = 16;  // 16×16
+    let cssSize = 520; // will be fitted
+    let dpr = 1;
+    let CELL = 20; // px per block (computed)
+
+    function fitCanvas(){
+      // square: min(520, wrapper width - paddings)
+      const w = Math.max(260, Math.min(520, wrap.clientWidth - 0)); // clamp
+      cssSize = w;
+      dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+      canvas.width  = Math.round(cssSize * dpr);
+      canvas.height = Math.round(cssSize * dpr);
+      canvas.style.width  = cssSize + 'px';
+      canvas.style.height = cssSize + 'px';
+      ctx.setTransform(dpr,0,0,dpr,0,0); // reset & scale to DPR
+      CELL = Math.floor((cssSize - PAD*2) / GRID);
+      render(); // redraw with new sizes
+    }
+
+    window.addEventListener('resize', fitCanvas);
+    window.addEventListener('orientationchange', fitCanvas);
 
     // ---------- chunk state ----------
-    const PAD = 40;          // padding around grid
-    const GRID = 16;         // 16×16 blocks per chunk
-    const CELL = Math.floor((CSS_SIZE - PAD*2) / GRID); // px per block (integer)
-
     let S = { x:0, z:0, chunkX:0, chunkZ:0, startX:0, startZ:0, endX:15, endZ:15 };
 
     function compute(x,z){
@@ -115,19 +129,37 @@
       const startX = chunkX*16, startZ = chunkZ*16;
       const endX = startX+15, endZ = startZ+15;
       S = { x, z, chunkX, chunkZ, startX, startZ, endX, endZ };
+      updateOut(); render();
     }
 
-    // pretty “chip” labels (no overlap)
+    function updateOut(){
+      $('chunkOut').innerHTML =
+        `현재 좌표: <strong>(${fmt(S.x)}, ${fmt(S.z)})</strong><br>`+
+        `청크 좌표: <strong>(${fmt(S.chunkX)}, ${fmt(S.chunkZ)})</strong><br>`+
+        `시작: <strong>X=${fmt(S.startX)}, Z=${fmt(S.startZ)}</strong><br>`+
+        `끝: <strong>X=${fmt(S.endX)}, Z=${fmt(S.endZ)}</strong>`;
+    }
+
+    // ---------- pretty chips (no overlap) ----------
     function roundRect(c,x,y,w,h,r){
       c.beginPath();
       c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r);
       c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath();
     }
-    function chip(text, x, y, align='left'){
+    function chip(text, x, y){ // left-anchored pill
       ctx.save();
       ctx.font = '12px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
       const w = ctx.measureText(text).width + 12, h = 20;
-      const left = align==='right' ? (x - w) : x;
+      ctx.fillStyle='rgba(255,255,255,.96)'; ctx.strokeStyle='#d1d1d6'; ctx.lineWidth=1;
+      roundRect(ctx,x,y,w,h,8); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#6e6e73'; ctx.textBaseline='middle'; ctx.fillText(text,x+6,y+h/2+0.5);
+      ctx.restore();
+    }
+    function chipRight(text, rightX, y){ // right-anchored pill
+      ctx.save();
+      ctx.font = '12px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
+      const w = ctx.measureText(text).width + 12, h = 20;
+      const left = rightX - w;
       ctx.fillStyle='rgba(255,255,255,.96)'; ctx.strokeStyle='#d1d1d6'; ctx.lineWidth=1;
       roundRect(ctx,left,y,w,h,8); ctx.fill(); ctx.stroke();
       ctx.fillStyle='#6e6e73'; ctx.textBaseline='middle'; ctx.fillText(text,left+6,y+h/2+0.5);
@@ -135,11 +167,12 @@
     }
 
     function render(){
-      // clear
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-      // grid origin/size in CSS px
+      // sizes in CSS px
       const GX = PAD, GY = PAD;
       const gridW = CELL*GRID, gridH = CELL*GRID;
+
+      // clear
+      ctx.clearRect(0,0,canvas.width,canvas.height);
 
       // grid bg + cells
       ctx.fillStyle='#fff';
@@ -154,13 +187,25 @@
       ctx.lineWidth=2; ctx.strokeStyle='#8e8e93';
       ctx.strokeRect(GX, GY, gridW, gridH);
 
-      // axis labels (chips) — never overlap
-      chip(`X ${fmt(S.endX)}`,  GX-10,        GY-28,       'left');  // top-left
-      chip(`X ${fmt(S.startX)}`,GX-10,        GY+gridH+8,  'left');  // bottom-left
-      chip(`Z ${fmt(S.startZ)}`,GX,           GY+gridH+8,  'left');  // bottom-left near grid
-      chip(`Z ${fmt(S.endZ)}`,  GX+gridW,     GY+gridH+8,  'right'); // bottom-right
+      // ---- axis labels without overlap ----
+      // X labels: LEFT ONLY (top-left / bottom-left), stuck to grid side
+      const leftRail = GX - 8; // 8px gap from grid
+      // compute pill width to anchor from the left edge (no overlap with bottom)
+      // top X(end)
+      const xEndText = `X ${fmt(S.endX)}`;
+      const xStartText = `X ${fmt(S.startX)}`;
+      // place the left-anchored pills so they sit entirely left of the grid
+      ctx.font = '12px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
+      let wEnd = ctx.measureText(xEndText).width + 12;
+      let wStart = ctx.measureText(xStartText).width + 12;
+      chip(xEndText,   leftRail - wEnd,   GY - 10);            // near top-left side
+      chip(xStartText, leftRail - wStart, GY + gridH - 10);    // near bottom-left side
 
-      // current block highlight inside chunk
+      // Z labels: BOTTOM ONLY (left-bottom / right-bottom)
+      chip(`Z ${fmt(S.startZ)}`, GX,            GY + gridH + 8);
+      chipRight(`Z ${fmt(S.endZ)}`, GX + gridW, GY + gridH + 8);
+
+      // current block highlight
       const col = S.x - S.startX; // 0..15
       const row = S.z - S.startZ; // 0..15
       if(col>=0 && col<16 && row>=0 && row<16){
@@ -170,41 +215,31 @@
       }
     }
 
-    function updateOut(){
-      $('chunkOut').innerHTML =
-        `현재 좌표: <strong>(${fmt(S.x)}, ${fmt(S.z)})</strong><br>`+
-        `청크 좌표: <strong>(${fmt(S.chunkX)}, ${fmt(S.chunkZ)})</strong><br>`+
-        `시작: <strong>X=${fmt(S.startX)}, Z=${fmt(S.startZ)}</strong><br>`+
-        `끝: <strong>X=${fmt(S.endX)}, Z=${fmt(S.endZ)}</strong>`;
-    }
-
-    function recalcFromInputs(){
-      const x = parseInt($('x').value,10);
-      const z = parseInt($('z').value,10);
-      if(!Number.isFinite(x) || !Number.isFinite(z)) return;
-      compute(x,z); updateOut(); render();
-    }
-
-    $('btnChunk').addEventListener('click', recalcFromInputs);
-    ['x','z'].forEach(id => $(id).addEventListener('keydown', e=>{
-      if(e.key==='Enter') recalcFromInputs();
-    }));
-
-    // click to move within current chunk
+    // click → move to block inside current chunk
     canvas.addEventListener('click', (e)=>{
       const rect = canvas.getBoundingClientRect();
-      const cx = (e.clientX - rect.left);
-      const cy = (e.clientY - rect.top);
+      const cx = (e.clientX - rect.left), cy = (e.clientY - rect.top);
       const GX = PAD, GY = PAD, gridW = CELL*GRID, gridH = CELL*GRID;
       if(cx<GX || cy<GY || cx>GX+gridW || cy>GY+gridH) return;
       const col = Math.floor((cx-GX)/CELL), row = Math.floor((cy-GY)/CELL);
       const nx = S.startX + col, nz = S.startZ + row;
       $('x').value = nx; $('z').value = nz;
-      compute(nx,nz); updateOut(); render();
+      compute(nx,nz);
     });
 
-    // initial render
-    compute(0,0); updateOut(); render();
+    // inputs
+    function recalcFromInputs(){
+      const x = parseInt($('x').value,10);
+      const z = parseInt($('z').value,10);
+      if(!Number.isFinite(x) || !Number.isFinite(z)) return;
+      compute(x,z);
+    }
+    $('btnChunk').addEventListener('click', recalcFromInputs);
+    ['x','z'].forEach(id=>$(id).addEventListener('keydown',e=>{ if(e.key==='Enter') recalcFromInputs(); }));
+
+    // initial
+    fitCanvas();               // size canvas to container
+    compute(0,0);              // first render
 
     // ---------- Nether converter ----------
     $('btnNether').addEventListener('click', ()=>{
@@ -215,7 +250,7 @@
       const dir = (document.querySelector('input[name="dir"]:checked')||{}).value || 'toNether';
       if(dir==='toNether'){
         out.innerHTML = `<strong>오버월드 → 네더</strong><br>(${fmt(X)}, ${fmt(Z)}) → <strong>(${fmt(Math.floor(X/8))}, ${fmt(Math.floor(Z/8))})</strong>`;
-      }else{
+      } else {
         out.innerHTML = `<strong>네더 → 오버월드</strong><br>(${fmt(X)}, ${fmt(Z)}) → <strong>(${fmt(X*8)}, ${fmt(Z*8)})</strong>`;
       }
     });

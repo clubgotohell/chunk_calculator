@@ -1,198 +1,156 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>청크 & 네더 계산기 PRO</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>청크 계산기</title>
   <style>
+    * {
+      box-sizing: border-box;
+      font-family: 'Helvetica Neue', sans-serif;
+    }
     body {
       margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      background: #f2f2f7;
-      color: #1c1c1e;
+      background-color: #f2f0f1;
+      color: #1d1d1f;
+      text-align: center;
     }
     header {
       display: flex;
-      background: #1c1c1e;
-      font-weight: 600;
+      justify-content: center;
+      background-color: #111;
     }
     header div {
-      flex: 1;
-      text-align: center;
-      padding: 14px;
+      padding: 1rem 2rem;
       cursor: pointer;
-      color: #aaa;
+      flex: 1;
+      font-weight: bold;
+      color: #fff;
     }
-    header div.active {
-      background: #fff;
-      color: #ff3b30;
+    .active {
+      background-color: #e53935;
     }
     main {
-      padding: 20px;
-      max-width: 600px;
-      margin: auto;
-      text-align: center;
+      padding: 2rem 1rem;
     }
-    input, button {
-      padding: 12px;
-      font-size: 16px;
-      width: 100%;
-      margin: 6px 0;
-      border-radius: 12px;
-      border: 1px solid #ccc;
+    h1 {
+      margin-bottom: 0.5rem;
+    }
+    input {
+      width: 280px;
+      padding: 1rem;
+      margin: 0.5rem 0;
+      font-size: 1.2rem;
+      border-radius: 16px;
+      border: none;
     }
     button {
-      background: #ff3b30;
-      color: white;
+      padding: 1rem 2rem;
+      font-size: 1.2rem;
       border: none;
+      border-radius: 999px;
+      background-color: #e53935;
+      color: white;
+      margin: 1rem 0;
       cursor: pointer;
     }
-    .result {
-      margin-top: 16px;
-      font-size: 15px;
+    .results {
+      margin: 1rem auto;
+      font-size: 1rem;
+      white-space: pre-line;
     }
     canvas {
-      margin-top: 16px;
-      background: #fff;
-      border: 1px solid #ccc;
-      border-radius: 12px;
+      background-color: white;
+      border-radius: 16px;
+      margin-top: 1rem;
+      border: 1px solid #aaa;
     }
-    .hidden {
-      display: none;
+    @media (max-width: 600px) {
+      input {
+        width: 80%;
+      }
     }
   </style>
 </head>
 <body>
   <header>
-    <div id="tabChunk" class="active" onclick="switchTab('chunk')">청크 계산기</div>
-    <div id="tabNether" onclick="switchTab('nether')">네더 포탈</div>
-    <div id="tabSaved" onclick="switchTab('saved')">저장 좌표</div>
+    <div class="active" id="tab-chunk">청크 계산기</div>
+    <div id="tab-nether">네더 계산기</div>
   </header>
   <main>
-    <section id="chunk" class="tab">
-      <h2>청크 계산기</h2>
-      <input id="x" placeholder="X 좌표">
-      <input id="z" placeholder="Z 좌표">
-      <button onclick="calculateChunk()">계산</button>
-      <div class="result" id="chunkResult"></div>
-      <canvas id="map" width="352" height="352"></canvas>
-    </section>
-    <section id="nether" class="tab hidden">
-      <h2>네더 포탈 시뮬레이터</h2>
-      <input id="overX" placeholder="오버월드 X">
-      <input id="overZ" placeholder="오버월드 Z">
-      <button onclick="toNether()">→ 네더 좌표</button>
-      <input id="netherX" placeholder="네더 X">
-      <input id="netherZ" placeholder="네더 Z">
-      <button onclick="toOverworld()">→ 오버월드 좌표</button>
-      <div class="result" id="netherResult"></div>
-    </section>
-    <section id="saved" class="tab hidden">
-      <h2>저장된 좌표</h2>
-      <ul id="coordList"></ul>
-    </section>
+    <h1>청크 계산기</h1>
+    <p>마인크래프트 좌표를 입력하세요</p>
+    <input type="number" id="x" placeholder="X 좌표" />
+    <br />
+    <input type="number" id="z" placeholder="Z 좌표" />
+    <br />
+    <button onclick="calculateChunk()">계산하기</button>
+    <div class="results" id="result"></div>
+    <canvas id="map" width="400" height="400"></canvas>
+    <p style="margin-top:0.5rem;">클릭으로 좌표 변화 가능</p>
   </main>
+
   <script>
-    let centerChunk = { x: 0, z: 0 };
-    let current = { x: 0, z: 0 };
+    const canvas = document.getElementById("map");
+    const ctx = canvas.getContext("2d");
+    const gridSize = 16;
+    const cell = 25;
+    const offset = 200;
 
-    const canvas = document.getElementById('map');
-    const ctx = canvas.getContext('2d');
-    canvas.addEventListener('click', (e) => {
-      const rect = canvas.getBoundingClientRect();
-      const offsetX = e.clientX - rect.left;
-      const offsetZ = e.clientY - rect.top;
-      const gridSize = 32;
-      const dx = Math.floor((offsetX - canvas.width / 2) / gridSize);
-      const dz = Math.floor((offsetZ - canvas.height / 2) / gridSize);
-      const clickedChunk = {
-        x: centerChunk.x + dx,
-        z: centerChunk.z + dz
-      };
-      const newX = clickedChunk.x * 16 + 8;
-      const newZ = clickedChunk.z * 16 + 8;
-      document.getElementById('x').value = newX;
-      document.getElementById('z').value = newZ;
-      calculateChunk();
-    });
-
-    function switchTab(tab) {
-      document.querySelectorAll('.tab').forEach(t => t.classList.add('hidden'));
-      document.getElementById(tab).classList.remove('hidden');
-      document.querySelectorAll('header div').forEach(d => d.classList.remove('active'));
-      document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
-    }
-
-    function calculateChunk() {
-      const x = parseInt(document.getElementById('x').value);
-      const z = parseInt(document.getElementById('z').value);
-      if (isNaN(x) || isNaN(z)) return;
-      current = { x, z };
-      const chunkX = Math.floor(x / 16);
-      const chunkZ = Math.floor(z / 16);
-      const startX = chunkX * 16;
-      const startZ = chunkZ * 16;
-      const endX = startX + 15;
-      const endZ = startZ + 15;
-      centerChunk = { x: chunkX, z: chunkZ };
-      document.getElementById('chunkResult').innerHTML =
-        `현재 좌표: (${x}, ${z})<br>
-         청크 위치: (${chunkX}, ${chunkZ})<br>
-         시작: X=${startX}, Z=${startZ}<br>
-         끝: X=${endX}, Z=${endZ}`;
-      drawMap();
-    }
-
-    function drawMap() {
+    function drawGrid(chunkX, chunkZ, posX, posZ) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const gridSize = 32;
-      for (let dx = -5; dx <= 5; dx++) {
-        for (let dz = -5; dz <= 5; dz++) {
-          const cx = centerChunk.x + dx;
-          const cz = centerChunk.z + dz;
-          const x = canvas.width / 2 + dx * gridSize;
-          const z = canvas.height / 2 + dz * gridSize;
-          ctx.strokeStyle = '#bbb';
-          ctx.strokeRect(x, z, gridSize, gridSize);
-          ctx.fillStyle = '#333';
-          ctx.font = '10px sans-serif';
-          ctx.fillText(`${cx},${cz}`, x + 2, z + 12);
-
-          const startX = cx * 16;
-          const startZ = cz * 16;
-          if (
-            current.x >= startX && current.x <= startX + 15 &&
-            current.z >= startZ && current.z <= startZ + 15
-          ) {
-            ctx.fillStyle = '#ff3b30';
-            ctx.fillRect(x + 2, z + 2, gridSize - 4, gridSize - 4);
-            const relX = current.x - startX;
-            const relZ = current.z - startZ;
-            const dotX = x + (relX / 16) * gridSize;
-            const dotZ = z + (relZ / 16) * gridSize;
-            ctx.fillStyle = '#000';
-            ctx.beginPath();
-            ctx.arc(dotX, dotZ, 3, 0, Math.PI * 2);
-            ctx.fill();
+      for (let i = -4; i <= 4; i++) {
+        for (let j = -4; j <= 4; j++) {
+          let gx = chunkX + i;
+          let gz = chunkZ + j;
+          ctx.strokeStyle = "#aaa";
+          ctx.strokeRect((i + 4) * cell, (j + 4) * cell, cell, cell);
+          ctx.fillStyle = "#000";
+          ctx.font = "10px sans-serif";
+          ctx.fillText(`${gx},${gz}`, (i + 4) * cell + 2, (j + 4) * cell + 12);
+          if (gx === chunkX && gz === chunkZ) {
+            ctx.fillStyle = "#e53935";
+            ctx.fillRect((i + 4) * cell, (j + 4) * cell, cell, cell);
           }
         }
       }
+      let relX = (posX % 16 + 16) % 16;
+      let relZ = (posZ % 16 + 16) % 16;
+      ctx.beginPath();
+      ctx.arc(4 * cell + relX * (cell / 16), 4 * cell + relZ * (cell / 16), 3, 0, 2 * Math.PI);
+      ctx.fillStyle = "#000";
+      ctx.fill();
     }
 
-    function toNether() {
-      const x = parseInt(document.getElementById('overX').value);
-      const z = parseInt(document.getElementById('overZ').value);
-      if (!isNaN(x) && !isNaN(z)) {
-        document.getElementById('netherResult').innerText = `네더: (${Math.floor(x/8)}, ${Math.floor(z/8)})`;
-      }
+    function calculateChunk() {
+      let x = parseInt(document.getElementById("x").value);
+      let z = parseInt(document.getElementById("z").value);
+      if (isNaN(x) || isNaN(z)) return;
+      let chunkX = Math.floor(x / 16);
+      let chunkZ = Math.floor(z / 16);
+      let startX = chunkX * 16;
+      let startZ = chunkZ * 16;
+      let endX = startX + 15;
+      let endZ = startZ + 15;
+      document.getElementById("result").innerText =
+        `현재 좌표: (${x}, ${z})\n청크 위치: (${chunkX}, ${chunkZ})\n시작: X=${startX}, Z=${startZ}\n끝: X=${endX}, Z=${endZ}`;
+      drawGrid(chunkX, chunkZ, x, z);
     }
-    function toOverworld() {
-      const x = parseInt(document.getElementById('netherX').value);
-      const z = parseInt(document.getElementById('netherZ').value);
-      if (!isNaN(x) && !isNaN(z)) {
-        document.getElementById('netherResult').innerText = `오버월드: (${x*8}, ${z*8})`;
-      }
-    }
+
+    canvas.addEventListener("click", function (e) {
+      const rect = canvas.getBoundingClientRect();
+      const cx = e.clientX - rect.left;
+      const cz = e.clientY - rect.top;
+      const clickChunkX = Math.floor(cx / cell) - 4 + Math.floor(parseInt(document.getElementById("x").value || 0) / 16);
+      const clickChunkZ = Math.floor(cz / cell) - 4 + Math.floor(parseInt(document.getElementById("z").value || 0) / 16);
+      const centerX = clickChunkX * 16 + 8;
+      const centerZ = clickChunkZ * 16 + 8;
+      document.getElementById("x").value = centerX;
+      document.getElementById("z").value = centerZ;
+      calculateChunk();
+    });
+
+    calculateChunk();
   </script>
 </body>
 </html>

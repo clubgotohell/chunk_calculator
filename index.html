@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>청크 · 네더 계산기 — Final Fix</title>
+  <title>청크 · 네더 계산기 — Final Final</title>
   <style>
     :root{
       --bg:#f2f2f7; --card:#fff; --ink:#1c1c1e; --muted:#6e6e73;
@@ -21,7 +21,6 @@
     .row{display:grid;gap:12px;margin-bottom:12px}
     @media (min-width:520px){.row{grid-template-columns:1fr 1fr}}
     .field{position:relative}
-    /* iOS의 - 입력 문제 해결: text + inputmode + 부호 토글 버튼 */
     input[type="text"]{width:100%;padding:14px 48px 14px 16px;border-radius:12px;border:1px solid #d2d2d7;font-size:16px;background:#fff;color:var(--ink);outline:none}
     input[type="text"]:focus{border-color:var(--grid-strong);box-shadow:0 0 0 3px rgba(229,57,53,.12)}
     .sign{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:32px;height:32px;border-radius:10px;border:1px solid #d2d2d7;background:#fff;font-weight:700;cursor:pointer}
@@ -29,9 +28,11 @@
     .cta{width:100%;padding:14px 18px;border:0;border-radius:999px;background:var(--accent);color:#fff;font-weight:700;font-size:16px;cursor:pointer;margin-top:8px}
     .out{margin-top:16px;line-height:1.6;text-align:center}
     .out strong{color:#2c2c2e}
-    /* 요청: 외부 상자/테두리 제거 → 그리드만 보이게 */
+
+    /* 요청: 그래프만 보이게(외곽 박스/테두리 제거) */
     .canvaswrap{margin-top:18px;padding:0;border:none;border-radius:0;background:transparent}
-    canvas{display:block;margin:0 auto;background:#fff;touch-action:manipulation}
+    canvas{display:block;margin:0 auto;background:transparent;touch-action:manipulation}
+
     .hint{color:var(--muted);text-align:center;margin-top:8px;font-size:13px}
     .hide{display:none}
     .radios{display:flex;gap:16px;justify-content:center;margin-bottom:8px}
@@ -51,11 +52,11 @@
       <p class="sub">좌표를 입력하면 현재 청크(16×16)와 블록 위치를 시각화합니다.</p>
       <div class="row">
         <div class="field">
-          <input type="text" id="x" placeholder="X 좌표" inputmode="numeric" pattern="-?[0-9]*"/>
+          <input type="text" id="x"  placeholder="X 좌표" inputmode="numeric" pattern="-?[0-9]*"/>
           <button class="sign" data-t="x">±</button>
         </div>
         <div class="field">
-          <input type="text" id="z" placeholder="Z 좌표" inputmode="numeric" pattern="-?[0-9]*"/>
+          <input type="text" id="z"  placeholder="Z 좌표" inputmode="numeric" pattern="-?[0-9]*"/>
           <button class="sign" data-t="z">±</button>
         </div>
       </div>
@@ -92,21 +93,20 @@
 
   <script>
   (function(){
-    // ---------- helpers ----------
+    // ===== helpers =====
     const $ = (id)=>document.getElementById(id);
     const fmt = (n)=>n.toLocaleString('en-US');
-    const toInt = (el)=>{ const m = String(el.value||'').trim().match(/^-?\d+/); return m ? parseInt(m[0],10) : NaN; };
-    const toggleSign = (el)=>{ const v = String(el.value||'').trim(); el.value = v.startsWith('-') ? v.slice(1) : ('-' + v.replace(/^-/,'')||'0'); };
-
-    // sign buttons
+    const toInt = (el)=>{ const s=String(el.value||'').trim(); const m = s.match(/^-?\d+$/)||s.match(/^-?\d+/); return m?parseInt(m[0],10):NaN; };
+    const toggleSign = (el)=>{
+      let s = String(el.value||'').trim();
+      if(!/^-?\d+$/.test(s)) s = '0';
+      el.value = s.startsWith('-') ? s.slice(1) : '-'+s;
+    };
     document.querySelectorAll('.sign').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        const target = $(btn.dataset.t);
-        toggleSign(target);
-      });
+      btn.addEventListener('click', ()=> toggleSign($(btn.dataset.t)));
     });
 
-    // ---------- tabs ----------
+    // ===== tabs =====
     const navChunk=$('navChunk'), navNether=$('navNether');
     const secChunk=$('secChunk'), secNether=$('secNether');
     function show(which){
@@ -119,34 +119,33 @@
     navChunk.addEventListener('click', ()=>show('chunk'));
     navNether.addEventListener('click', ()=>show('nether'));
 
-    // ---------- canvas (responsive square + DPR) ----------
+    // ===== canvas (responsive square + DPR) =====
     const wrap = $('canvasWrap');
     const canvas = $('chunkCanvas');
     const ctx = canvas.getContext('2d');
 
     const PAD  = 40;   // padding inside canvas around grid
     const GRID = 16;   // 16×16
-    let cssSize = 520; // will be set to wrapper width
+    let cssSize = 520; // set by wrapper
     let dpr = 1;
-    let CELL = 20;     // px per block (computed)
+    let CELL = 20;     // px per block
 
     function fitCanvas(){
-      // square: clamp to [260, 520] and wrapper width
-      const w = Math.max(260, Math.min(520, wrap.clientWidth));
+      const w = Math.max(260, Math.min(520, wrap.clientWidth)); // square
       cssSize = w;
       dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
       canvas.width  = Math.round(cssSize * dpr);
       canvas.height = Math.round(cssSize * dpr);
       canvas.style.width  = cssSize + 'px';
       canvas.style.height = cssSize + 'px';
-      ctx.setTransform(dpr,0,0,dpr,0,0); // reset + scale
+      ctx.setTransform(dpr,0,0,dpr,0,0);
       CELL = Math.floor((cssSize - PAD*2) / GRID);
-      render(); // redraw
+      render();
     }
     window.addEventListener('resize', fitCanvas);
     window.addEventListener('orientationchange', fitCanvas);
 
-    // ---------- chunk state ----------
+    // ===== chunk state =====
     let S = { x:0, z:0, chunkX:0, chunkZ:0, startX:0, startZ:0, endX:15, endZ:15 };
 
     function compute(x,z){
@@ -165,7 +164,7 @@
         `끝: <strong>X=${fmt(S.endX)}, Z=${fmt(S.endZ)}</strong>`;
     }
 
-    // ---------- chip labels ----------
+    // ===== chip labels (no overlap / no clipping) =====
     function roundRect(c,x,y,w,h,r){
       c.beginPath();
       c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r);
@@ -200,19 +199,18 @@
       // clear
       ctx.clearRect(0,0,canvas.width,canvas.height);
 
-      // grid bg + cells (외곽 굵은 테두리 제거, 내부 선만)
-      ctx.fillStyle='#fff';
-      ctx.fillRect(GX-1, GY-1, gridW+2, gridH+2);
+      // grid lines only (no thick outer border, no bg box)
       ctx.lineWidth=1; ctx.strokeStyle='#d1d1d6';
-      for(let r=0;r<GRID;r++){
-        for(let c=0;c<GRID;c++){
-          const x = GX + c*CELL, y = GY + r*CELL;
-          ctx.strokeRect(x,y,CELL,CELL);
-        }
+      for(let r=0;r<=GRID;r++){
+        const y = GY + r*CELL;
+        ctx.beginPath(); ctx.moveTo(GX, y); ctx.lineTo(GX+gridW, y); ctx.stroke();
       }
-      // (두꺼운 바깥 선 없음)
+      for(let c=0;c<=GRID;c++){
+        const x = GX + c*CELL;
+        ctx.beginPath(); ctx.moveTo(x, GY); ctx.lineTo(x, GY+gridH); ctx.stroke();
+      }
 
-      // ---- 라벨 규칙: X=좌측(상/하), Z=아래(좌/우) + 좁을 때 자동 분리 ----
+      // labels: X(left top/bottom), Z(bottom left/right)
       ctx.font = '12px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
       const xEndTxt   = `X ${fmt(S.endX)}`;
       const xStartTxt = `X ${fmt(S.startX)}`;
@@ -221,22 +219,19 @@
       const wXstart = ctx.measureText(xStartTxt).width + 12;
 
       const leftRail = GX - 8;
-      let xEndLeft   = leftRail - wXend;         // 위쪽 X(end)
-      let xStartLeft = leftRail - wXstart;       // 아래쪽 X(start)
-
-      // 왼쪽으로 너무 붙으면 Y를 한 줄 위로 이동시켜 Z칩과 겹침 방지
       const bottomY = GY + gridH + 8;
       const topY    = GY - 10;
-      const xStartClamped = xStartLeft < 6;
 
-      chip(xEndTxt,   Math.max(6,xEndLeft),   topY);
-      chip(xStartTxt, Math.max(6,xStartLeft), xStartClamped ? bottomY - 26 : bottomY);
+      // place and clamp
+      chip(xEndTxt,   leftRail - wXend,   topY);
+      // stack X(start) 26px 위로 올려 Z(start)와 겹치지 않게
+      chip(xStartTxt, leftRail - wXstart, bottomY - 26);
 
       chip(`Z ${fmt(S.startZ)}`, GX,            bottomY);
       chipRight(`Z ${fmt(S.endZ)}`, GX + gridW, bottomY);
 
-      // current block highlight within chunk
-      const col = S.x - S.startX, row = S.z - S.startZ; // 0..15
+      // current block highlight
+      const col = S.x - S.startX, row = S.z - S.startZ;
       if(col>=0 && col<16 && row>=0 && row<16){
         const sx = GX + col*CELL, sy = GY + row*CELL;
         ctx.fillStyle='rgba(229,57,53,.9)';
@@ -270,7 +265,7 @@
     fitCanvas();
     compute(0,0);
 
-    // ---------- Nether converter ----------
+    // ===== Nether converter =====
     function netherCalc(){
       const X = toInt($('nx'));
       const Z = toInt($('nz'));

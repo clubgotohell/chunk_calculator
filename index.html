@@ -1,156 +1,174 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>청크 계산기</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>마인크래프트 좌표 계산기</title>
   <style>
     * {
       box-sizing: border-box;
-      font-family: 'Helvetica Neue', sans-serif;
     }
     body {
       margin: 0;
-      background-color: #f2f0f1;
-      color: #1d1d1f;
-      text-align: center;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      background: #f2f1f0;
+      color: #111;
     }
     header {
       display: flex;
-      justify-content: center;
-      background-color: #111;
-    }
-    header div {
-      padding: 1rem 2rem;
-      cursor: pointer;
-      flex: 1;
-      font-weight: bold;
+      background: #111;
       color: #fff;
     }
-    .active {
-      background-color: #e53935;
-    }
-    main {
-      padding: 2rem 1rem;
-    }
-    h1 {
-      margin-bottom: 0.5rem;
-    }
-    input {
-      width: 280px;
+    header div {
+      flex: 1;
+      text-align: center;
       padding: 1rem;
-      margin: 0.5rem 0;
-      font-size: 1.2rem;
-      border-radius: 16px;
-      border: none;
-    }
-    button {
-      padding: 1rem 2rem;
-      font-size: 1.2rem;
-      border: none;
-      border-radius: 999px;
-      background-color: #e53935;
-      color: white;
-      margin: 1rem 0;
       cursor: pointer;
     }
-    .results {
-      margin: 1rem auto;
+    header .active {
+      background: #e53935;
+      font-weight: bold;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 2rem 1rem;
+      text-align: center;
+    }
+    input {
+      width: 100%;
+      padding: 1rem;
+      font-size: 1.2rem;
+      margin: 0.5rem 0;
+      border-radius: 10px;
+      border: none;
+      outline: none;
+    }
+    button {
+      background: #e53935;
+      color: white;
+      padding: 1rem;
+      font-size: 1.2rem;
+      border: none;
+      border-radius: 20px;
+      margin-top: 1rem;
+      cursor: pointer;
+      width: 100%;
+    }
+    .result {
+      margin-top: 1rem;
       font-size: 1rem;
-      white-space: pre-line;
+      line-height: 1.6;
     }
     canvas {
-      background-color: white;
-      border-radius: 16px;
+      border: 1px solid #ccc;
       margin-top: 1rem;
-      border: 1px solid #aaa;
-    }
-    @media (max-width: 600px) {
-      input {
-        width: 80%;
-      }
     }
   </style>
 </head>
 <body>
   <header>
-    <div class="active" id="tab-chunk">청크 계산기</div>
-    <div id="tab-nether">네더 계산기</div>
+    <div id="chunkTab" class="active" onclick="switchTab('chunk')">청크 계산기</div>
+    <div id="netherTab" onclick="switchTab('nether')">네더 계산기</div>
   </header>
-  <main>
-    <h1>청크 계산기</h1>
-    <p>마인크래프트 좌표를 입력하세요</p>
-    <input type="number" id="x" placeholder="X 좌표" />
-    <br />
-    <input type="number" id="z" placeholder="Z 좌표" />
-    <br />
-    <button onclick="calculateChunk()">계산하기</button>
-    <div class="results" id="result"></div>
-    <canvas id="map" width="400" height="400"></canvas>
-    <p style="margin-top:0.5rem;">클릭으로 좌표 변화 가능</p>
-  </main>
+  <div class="container">
+    <div id="chunkCalculator">
+      <h2>청크 계산기</h2>
+      <p>마인크래프트 좌표를 입력하세요</p>
+      <input type="number" id="x" placeholder="X 좌표">
+      <input type="number" id="z" placeholder="Z 좌표">
+      <button onclick="calculateChunk()">계산하기</button>
+      <div class="result" id="chunkResult"></div>
+      <canvas id="chunkCanvas" width="320" height="320"></canvas>
+    </div>
+    <div id="netherCalculator" style="display: none;">
+      <h2>네더 계산기</h2>
+      <p>오버월드 또는 네더 좌표를 입력하세요</p>
+      <input type="number" id="netherX" placeholder="X 좌표">
+      <input type="number" id="netherZ" placeholder="Z 좌표">
+      <button onclick="calculateNether()">변환하기</button>
+      <div class="result" id="netherResult"></div>
+    </div>
+  </div>
 
   <script>
-    const canvas = document.getElementById("map");
-    const ctx = canvas.getContext("2d");
-    const gridSize = 16;
-    const cell = 25;
-    const offset = 200;
+    function switchTab(tab) {
+      document.getElementById('chunkTab').classList.remove('active');
+      document.getElementById('netherTab').classList.remove('active');
+      document.getElementById('chunkCalculator').style.display = 'none';
+      document.getElementById('netherCalculator').style.display = 'none';
 
-    function drawGrid(chunkX, chunkZ, posX, posZ) {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      for (let i = -4; i <= 4; i++) {
-        for (let j = -4; j <= 4; j++) {
-          let gx = chunkX + i;
-          let gz = chunkZ + j;
-          ctx.strokeStyle = "#aaa";
-          ctx.strokeRect((i + 4) * cell, (j + 4) * cell, cell, cell);
-          ctx.fillStyle = "#000";
-          ctx.font = "10px sans-serif";
-          ctx.fillText(`${gx},${gz}`, (i + 4) * cell + 2, (j + 4) * cell + 12);
-          if (gx === chunkX && gz === chunkZ) {
-            ctx.fillStyle = "#e53935";
-            ctx.fillRect((i + 4) * cell, (j + 4) * cell, cell, cell);
-          }
-        }
+      if (tab === 'chunk') {
+        document.getElementById('chunkTab').classList.add('active');
+        document.getElementById('chunkCalculator').style.display = 'block';
+      } else {
+        document.getElementById('netherTab').classList.add('active');
+        document.getElementById('netherCalculator').style.display = 'block';
       }
-      let relX = (posX % 16 + 16) % 16;
-      let relZ = (posZ % 16 + 16) % 16;
-      ctx.beginPath();
-      ctx.arc(4 * cell + relX * (cell / 16), 4 * cell + relZ * (cell / 16), 3, 0, 2 * Math.PI);
-      ctx.fillStyle = "#000";
-      ctx.fill();
     }
 
     function calculateChunk() {
-      let x = parseInt(document.getElementById("x").value);
-      let z = parseInt(document.getElementById("z").value);
-      if (isNaN(x) || isNaN(z)) return;
-      let chunkX = Math.floor(x / 16);
-      let chunkZ = Math.floor(z / 16);
-      let startX = chunkX * 16;
-      let startZ = chunkZ * 16;
-      let endX = startX + 15;
-      let endZ = startZ + 15;
-      document.getElementById("result").innerText =
-        `현재 좌표: (${x}, ${z})\n청크 위치: (${chunkX}, ${chunkZ})\n시작: X=${startX}, Z=${startZ}\n끝: X=${endX}, Z=${endZ}`;
+      const x = parseInt(document.getElementById('x').value);
+      const z = parseInt(document.getElementById('z').value);
+      if (isNaN(x) || isNaN(z)) {
+        document.getElementById('chunkResult').innerText = '좌표를 정확히 입력하세요';
+        return;
+      }
+      const chunkX = Math.floor(x / 16);
+      const chunkZ = Math.floor(z / 16);
+      const startX = chunkX * 16;
+      const startZ = chunkZ * 16;
+      const endX = startX + 15;
+      const endZ = startZ + 15;
+      document.getElementById('chunkResult').innerHTML =
+        `현재 좌표: (${x}, ${z})<br>
+        청크 위치: (${chunkX}, ${chunkZ})<br>
+        시작: X=${startX}, Z=${startZ}<br>
+        끝: X=${endX}, Z=${endZ}`;
+
       drawGrid(chunkX, chunkZ, x, z);
     }
 
-    canvas.addEventListener("click", function (e) {
-      const rect = canvas.getBoundingClientRect();
-      const cx = e.clientX - rect.left;
-      const cz = e.clientY - rect.top;
-      const clickChunkX = Math.floor(cx / cell) - 4 + Math.floor(parseInt(document.getElementById("x").value || 0) / 16);
-      const clickChunkZ = Math.floor(cz / cell) - 4 + Math.floor(parseInt(document.getElementById("z").value || 0) / 16);
-      const centerX = clickChunkX * 16 + 8;
-      const centerZ = clickChunkZ * 16 + 8;
-      document.getElementById("x").value = centerX;
-      document.getElementById("z").value = centerZ;
-      calculateChunk();
-    });
+    function drawGrid(chunkX, chunkZ, posX, posZ) {
+      const canvas = document.getElementById('chunkCanvas');
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    calculateChunk();
-  </script>
-</body>
-</html>
+      const gridSize = 10;
+      const boxSize = 32;
+      for (let i = 0; i < gridSize; i++) {
+        for (let j = 0; j < gridSize; j++) {
+          const cx = chunkX - 5 + j;
+          const cz = chunkZ - 5 + i;
+          const sx = cx * 16;
+          const sz = cz * 16;
+
+          ctx.strokeStyle = '#aaa';
+          ctx.strokeRect(j * boxSize, i * boxSize, boxSize, boxSize);
+          ctx.fillStyle = '#000';
+          ctx.font = '8px sans-serif';
+          ctx.fillText(`${cx},${cz}`, j * boxSize + 4, i * boxSize + 12);
+
+          if (Math.floor(posX / 16) === cx && Math.floor(posZ / 16) === cz) {
+            ctx.fillStyle = 'red';
+            ctx.fillRect(j * boxSize + 10, i * boxSize + 10, 12, 12);
+          }
+        }
+      }
+    }
+
+    function calculateNether() {
+      const x = parseInt(document.getElementById('netherX').value);
+      const z = parseInt(document.getElementById('netherZ').value);
+      if (isNaN(x) || isNaN(z)) {
+        document.getElementById('netherResult').innerText = '좌표를 정확히 입력하세요';
+        return;
+      }
+
+      const overworldX = x * 8;
+      const overworldZ = z * 8;
+      const netherX = Math.floor(x / 8);
+      const netherZ = Math.floor(z / 8);
+
+      document.getElementById('netherResult').innerHTML =
+        `

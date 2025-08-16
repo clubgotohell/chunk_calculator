@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>청크 · 네더 계산기 — Final</title>
+  <title>청크 · 네더 계산기 — Final Fix</title>
   <style>
     :root{
       --bg:#f2f2f7; --card:#fff; --ink:#1c1c1e; --muted:#6e6e73;
@@ -20,13 +20,17 @@
     .sub{color:var(--muted);margin:0 0 18px}
     .row{display:grid;gap:12px;margin-bottom:12px}
     @media (min-width:520px){.row{grid-template-columns:1fr 1fr}}
-    /* iOS에서 음수(-) 입력을 위해 text + inputmode 사용 */
-    input[type="text"]{width:100%;padding:14px 16px;border-radius:12px;border:1px solid #d2d2d7;font-size:16px;background:#fff;color:var(--ink);outline:none}
+    .field{position:relative}
+    /* iOS의 - 입력 문제 해결: text + inputmode + 부호 토글 버튼 */
+    input[type="text"]{width:100%;padding:14px 48px 14px 16px;border-radius:12px;border:1px solid #d2d2d7;font-size:16px;background:#fff;color:var(--ink);outline:none}
     input[type="text"]:focus{border-color:var(--grid-strong);box-shadow:0 0 0 3px rgba(229,57,53,.12)}
+    .sign{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:32px;height:32px;border-radius:10px;border:1px solid #d2d2d7;background:#fff;font-weight:700;cursor:pointer}
+    .sign:active{background:#f4f4f4}
     .cta{width:100%;padding:14px 18px;border:0;border-radius:999px;background:var(--accent);color:#fff;font-weight:700;font-size:16px;cursor:pointer;margin-top:8px}
     .out{margin-top:16px;line-height:1.6;text-align:center}
     .out strong{color:#2c2c2e}
-    .canvaswrap{margin-top:18px;padding:18px;border:1px solid #e5e5ea;border-radius:var(--r);background:#fff}
+    /* 요청: 외부 상자/테두리 제거 → 그리드만 보이게 */
+    .canvaswrap{margin-top:18px;padding:0;border:none;border-radius:0;background:transparent}
     canvas{display:block;margin:0 auto;background:#fff;touch-action:manipulation}
     .hint{color:var(--muted);text-align:center;margin-top:8px;font-size:13px}
     .hide{display:none}
@@ -46,8 +50,14 @@
       <h1>청크 계산기</h1>
       <p class="sub">좌표를 입력하면 현재 청크(16×16)와 블록 위치를 시각화합니다.</p>
       <div class="row">
-        <input type="text" id="x"  placeholder="X 좌표" inputmode="numeric" pattern="-?[0-9]*"/>
-        <input type="text" id="z"  placeholder="Z 좌표" inputmode="numeric" pattern="-?[0-9]*"/>
+        <div class="field">
+          <input type="text" id="x" placeholder="X 좌표" inputmode="numeric" pattern="-?[0-9]*"/>
+          <button class="sign" data-t="x">±</button>
+        </div>
+        <div class="field">
+          <input type="text" id="z" placeholder="Z 좌표" inputmode="numeric" pattern="-?[0-9]*"/>
+          <button class="sign" data-t="z">±</button>
+        </div>
       </div>
       <button class="cta" id="btnChunk">계산하기</button>
       <div id="chunkOut" class="out"></div>
@@ -66,8 +76,14 @@
         <label><input type="radio" name="dir" value="toOver"/> 네더 → 오버월드</label>
       </div>
       <div class="row">
-        <input type="text" id="nx" placeholder="X 좌표" inputmode="numeric" pattern="-?[0-9]*"/>
-        <input type="text" id="nz" placeholder="Z 좌표" inputmode="numeric" pattern="-?[0-9]*"/>
+        <div class="field">
+          <input type="text" id="nx" placeholder="X 좌표" inputmode="numeric" pattern="-?[0-9]*"/>
+          <button class="sign" data-t="nx">±</button>
+        </div>
+        <div class="field">
+          <input type="text" id="nz" placeholder="Z 좌표" inputmode="numeric" pattern="-?[0-9]*"/>
+          <button class="sign" data-t="nz">±</button>
+        </div>
       </div>
       <button class="cta" id="btnNether">변환하기</button>
       <div id="netherOut" class="out"></div>
@@ -80,6 +96,15 @@
     const $ = (id)=>document.getElementById(id);
     const fmt = (n)=>n.toLocaleString('en-US');
     const toInt = (el)=>{ const m = String(el.value||'').trim().match(/^-?\d+/); return m ? parseInt(m[0],10) : NaN; };
+    const toggleSign = (el)=>{ const v = String(el.value||'').trim(); el.value = v.startsWith('-') ? v.slice(1) : ('-' + v.replace(/^-/,'')||'0'); };
+
+    // sign buttons
+    document.querySelectorAll('.sign').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const target = $(btn.dataset.t);
+        toggleSign(target);
+      });
+    });
 
     // ---------- tabs ----------
     const navChunk=$('navChunk'), navNether=$('navNether');
@@ -140,7 +165,7 @@
         `끝: <strong>X=${fmt(S.endX)}, Z=${fmt(S.endZ)}</strong>`;
     }
 
-    // ---------- pretty chip labels (no overlap / no clipping) ----------
+    // ---------- chip labels ----------
     function roundRect(c,x,y,w,h,r){
       c.beginPath();
       c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r);
@@ -150,7 +175,6 @@
       ctx.save();
       ctx.font = '12px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
       const w = ctx.measureText(text).width + 12, h = 20;
-      // clamp inside canvas
       x = Math.max(6, Math.min(x, cssSize - w - 6)); y = Math.max(6, Math.min(y, cssSize - h - 6));
       ctx.fillStyle='rgba(255,255,255,.96)'; ctx.strokeStyle='#d1d1d6'; ctx.lineWidth=1;
       roundRect(ctx,x,y,w,h,8); ctx.fill(); ctx.stroke();
@@ -176,7 +200,7 @@
       // clear
       ctx.clearRect(0,0,canvas.width,canvas.height);
 
-      // grid bg + cells
+      // grid bg + cells (외곽 굵은 테두리 제거, 내부 선만)
       ctx.fillStyle='#fff';
       ctx.fillRect(GX-1, GY-1, gridW+2, gridH+2);
       ctx.lineWidth=1; ctx.strokeStyle='#d1d1d6';
@@ -186,10 +210,9 @@
           ctx.strokeRect(x,y,CELL,CELL);
         }
       }
-      ctx.lineWidth=2; ctx.strokeStyle='#8e8e93';
-      ctx.strokeRect(GX, GY, gridW, gridH);
+      // (두꺼운 바깥 선 없음)
 
-      // ---- labels rule: X = left-only (top/bottom), Z = bottom-only (left/right) ----
+      // ---- 라벨 규칙: X=좌측(상/하), Z=아래(좌/우) + 좁을 때 자동 분리 ----
       ctx.font = '12px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
       const xEndTxt   = `X ${fmt(S.endX)}`;
       const xStartTxt = `X ${fmt(S.startX)}`;
@@ -197,15 +220,20 @@
       const wXend   = ctx.measureText(xEndTxt).width + 12;
       const wXstart = ctx.measureText(xStartTxt).width + 12;
 
-      const leftRail = GX - 8;                  // a little left from grid
-      const xEndLeft   = leftRail - wXend;      // top-left X end
-      const xStartLeft = leftRail - wXstart;    // bottom-left X start
+      const leftRail = GX - 8;
+      let xEndLeft   = leftRail - wXend;         // 위쪽 X(end)
+      let xStartLeft = leftRail - wXstart;       // 아래쪽 X(start)
 
-      chip(xEndTxt,   xEndLeft,   GY - 10);
-      chip(xStartTxt, xStartLeft, GY + gridH + 8);
+      // 왼쪽으로 너무 붙으면 Y를 한 줄 위로 이동시켜 Z칩과 겹침 방지
+      const bottomY = GY + gridH + 8;
+      const topY    = GY - 10;
+      const xStartClamped = xStartLeft < 6;
 
-      chip(`Z ${fmt(S.startZ)}`, GX,            GY + gridH + 8);
-      chipRight(`Z ${fmt(S.endZ)}`, GX + gridW, GY + gridH + 8);
+      chip(xEndTxt,   Math.max(6,xEndLeft),   topY);
+      chip(xStartTxt, Math.max(6,xStartLeft), xStartClamped ? bottomY - 26 : bottomY);
+
+      chip(`Z ${fmt(S.startZ)}`, GX,            bottomY);
+      chipRight(`Z ${fmt(S.endZ)}`, GX + gridW, bottomY);
 
       // current block highlight within chunk
       const col = S.x - S.startX, row = S.z - S.startZ; // 0..15
@@ -236,14 +264,14 @@
       compute(x,z);
     }
     $('btnChunk').addEventListener('click', recalcFromInputs);
-    ['x','z'].forEach(id=>$(id).addEventListener('keydown',e=>{ if(e.key==='Enter') recalcFromInputs(); }));
+    ['x','z','nx','nz'].forEach(id=>$(id)?.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); (id==='nx'||id==='nz')?netherCalc():recalcFromInputs(); }}));
 
     // initial
-    fitCanvas();        // make canvas square & scaled
-    compute(0,0);       // first render
+    fitCanvas();
+    compute(0,0);
 
     // ---------- Nether converter ----------
-    $('btnNether').addEventListener('click', ()=>{
+    function netherCalc(){
       const X = toInt($('nx'));
       const Z = toInt($('nz'));
       const out = $('netherOut');
@@ -252,7 +280,8 @@
       out.innerHTML = (dir==='toNether')
         ? `<strong>오버월드 → 네더</strong><br>(${fmt(X)}, ${fmt(Z)}) → <strong>(${fmt(Math.floor(X/8))}, ${fmt(Math.floor(Z/8))})</strong>`
         : `<strong>네더 → 오버월드</strong><br>(${fmt(X)}, ${fmt(Z)}) → <strong>(${fmt(X*8)}, ${fmt(Z*8)})</strong>`;
-    });
+    }
+    $('btnNether').addEventListener('click', netherCalc);
   })();
   </script>
 </body>

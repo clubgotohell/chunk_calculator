@@ -3,115 +3,59 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>마인크래프트 계산기</title>
+  <title>마인크래프트 계산기 PRO</title>
   <style>
-    :root {
-      --black: #0a0a0a;
-      --red: #e53935;
-      --gray: #f5f5f7;
-      --white: #ffffff;
-      --accent: #ff3b30;
-      --text: #1c1c1e;
-      --grid-size: 16;
-      --cell-size: 20px;
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
     body {
       margin: 0;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      background: var(--gray);
-      color: var(--text);
-      transition: background 0.3s, color 0.3s;
+      background: #f5f5f7;
+      color: #1c1c1e;
     }
-
-    @media (prefers-color-scheme: dark) {
-      body {
-        background: #1c1c1e;
-        color: var(--gray);
-      }
-      input, button {
-        background: #2c2c2e;
-        color: var(--gray);
-        border: 1px solid #444;
-      }
-    }
-
     header {
       display: flex;
-      background: var(--black);
-      color: var(--white);
+      background: #1c1c1e;
+      color: #fff;
       font-weight: 600;
-      font-size: 17px;
     }
-
     header div {
       flex: 1;
       text-align: center;
-      padding: 16px;
+      padding: 14px;
       cursor: pointer;
-      transition: background 0.2s;
     }
-
     header div.active {
-      background: var(--accent);
+      background: #ff3b30;
     }
-
     main {
-      padding: 40px 16px;
-      max-width: 480px;
-      margin: 0 auto;
+      padding: 20px;
+      max-width: 540px;
+      margin: auto;
       text-align: center;
     }
-
-    h2 {
-      font-size: 24px;
-      margin-bottom: 6px;
-    }
-
-    p {
-      color: #444;
-      font-size: 14px;
-    }
-
-    input {
-      width: 100%;
-      padding: 14px;
+    input, button {
+      padding: 12px;
       font-size: 16px;
-      margin: 12px 0;
+      width: 100%;
+      margin: 8px 0;
       border-radius: 12px;
       border: 1px solid #ccc;
-      background: #fff;
     }
-
     button {
-      width: 100%;
-      background: var(--accent);
-      color: var(--white);
+      background: #ff3b30;
+      color: white;
       border: none;
-      font-size: 16px;
-      padding: 14px;
-      border-radius: 32px;
       cursor: pointer;
-      margin-top: 16px;
     }
-
     .result {
-      margin-top: 24px;
-      font-size: 16px;
-      line-height: 1.6;
+      margin-top: 16px;
+      font-size: 15px;
     }
-
     canvas {
-      margin-top: 32px;
-      border: 1px solid #ddd;
+      margin-top: 16px;
       background: #fff;
-      touch-action: manipulation;
+      border: 1px solid #ccc;
+      touch-action: none;
     }
-
     .hidden {
       display: none;
     }
@@ -119,152 +63,143 @@
 </head>
 <body>
   <header>
-    <div id="tabChunk" class="active" onclick="showTab('chunk')">청크 계산기</div>
-    <div id="tabNether" onclick="showTab('nether')">네더 계산기</div>
-    <div id="tabReverse" onclick="showTab('reverse')">오버월드 계산기</div>
+    <div id="tabChunk" class="active" onclick="switchTab('chunk')">청크 계산기</div>
+    <div id="tabNether" onclick="switchTab('nether')">네더 포탈</div>
+    <div id="tabSaved" onclick="switchTab('saved')">저장 좌표</div>
   </header>
-
   <main>
-    <section id="chunkSection">
+    <!-- 청크 계산기 -->
+    <section id="chunk" class="tab">
       <h2>청크 계산기</h2>
-      <p>마인크래프트 좌표를 입력하세요</p>
-      <input type="number" id="xChunk" placeholder="X 좌표">
-      <input type="number" id="zChunk" placeholder="Z 좌표">
-      <button onclick="calculateChunk()">계산하기</button>
+      <input id="x" placeholder="X 좌표">
+      <input id="z" placeholder="Z 좌표">
+      <button onclick="calculateChunk()">계산</button>
+      <button onclick="saveCoords()">저장</button>
       <div class="result" id="chunkResult"></div>
-      <canvas id="chunkCanvas" width="320" height="320" onclick="handleCanvasClick(event)"></canvas>
+      <canvas id="map" width="320" height="320"></canvas>
     </section>
-
-    <section id="netherSection" class="hidden">
-      <h2>네더 계산기</h2>
-      <p>오버월드 좌표 → 네더 좌표</p>
-      <input type="number" id="xOver" placeholder="오버월드 X 좌표">
-      <input type="number" id="zOver" placeholder="오버월드 Z 좌표">
-      <button onclick="calculateNether()">계산하기</button>
+    <!-- 네더 포탈 계산기 -->
+    <section id="nether" class="tab hidden">
+      <h2>네더 포탈 시뮬레이터</h2>
+      <input id="overX" placeholder="오버월드 X">
+      <input id="overZ" placeholder="오버월드 Z">
+      <button onclick="toNether()">→ 네더 좌표</button>
+      <input id="netherX" placeholder="네더 X">
+      <input id="netherZ" placeholder="네더 Z">
+      <button onclick="toOverworld()">→ 오버월드 좌표</button>
       <div class="result" id="netherResult"></div>
     </section>
-
-    <section id="reverseSection" class="hidden">
-      <h2>오버월드 계산기</h2>
-      <p>네더 좌표 → 오버월드 좌표</p>
-      <input type="number" id="xNether" placeholder="네더 X 좌표">
-      <input type="number" id="zNether" placeholder="네더 Z 좌표">
-      <button onclick="calculateReverse()">계산하기</button>
-      <div class="result" id="reverseResult"></div>
+    <!-- 저장된 좌표 -->
+    <section id="saved" class="tab hidden">
+      <h2>저장된 좌표</h2>
+      <ul id="coordList"></ul>
     </section>
   </main>
-
   <script>
-    function showTab(tab) {
-      ['tabChunk','tabNether','tabReverse'].forEach(id => document.getElementById(id).classList.remove('active'));
-      ['chunkSection','netherSection','reverseSection'].forEach(id => document.getElementById(id).classList.add('hidden'));
-      document.getElementById(`tab${capitalize(tab)}`).classList.add('active');
-      document.getElementById(`${tab}Section`).classList.remove('hidden');
+    let activeTab = 'chunk';
+    let panX = 0, panY = 0, zoom = 1;
+
+    function switchTab(tab) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.add('hidden'));
+      document.querySelector(`#${tab}`).classList.remove('hidden');
+      document.querySelectorAll('header div').forEach(d => d.classList.remove('active'));
+      document.querySelector(`#tab${capitalize(tab)}`).classList.add('active');
+      activeTab = tab;
+      if (tab === 'saved') loadCoords();
     }
 
     function capitalize(str) {
       return str.charAt(0).toUpperCase() + str.slice(1);
     }
 
-    function calculateChunk(x = null, z = null) {
-      if (x === null || z === null) {
-        x = parseInt(document.getElementById('xChunk').value);
-        z = parseInt(document.getElementById('zChunk').value);
-      }
-      const result = document.getElementById('chunkResult');
-      const canvas = document.getElementById('chunkCanvas');
-      const ctx = canvas.getContext('2d');
-
-      if (isNaN(x) || isNaN(z)) {
-        result.innerText = '좌표를 올바르게 입력하세요.';
-        return;
-      }
-
+    function calculateChunk() {
+      const x = parseInt(document.getElementById('x').value);
+      const z = parseInt(document.getElementById('z').value);
       const chunkX = Math.floor(x / 16);
       const chunkZ = Math.floor(z / 16);
-      const startX = chunkX * 16;
-      const startZ = chunkZ * 16;
-      const endX = startX + 15;
-      const endZ = startZ + 15;
-
-      result.innerHTML = `
-        <strong>청크 좌표:</strong> (${chunkX}, ${chunkZ})<br>
-        시작: X=${startX}, Z=${startZ}<br>
-        끝: X=${endX}, Z=${endZ}`;
-
-      drawGrid(ctx, chunkX, chunkZ);
+      document.getElementById('chunkResult').innerHTML =
+        `청크: (${chunkX}, ${chunkZ})<br>시작: (${chunkX*16}, ${chunkZ*16})<br>끝: (${chunkX*16+15}, ${chunkZ*16+15})`;
+      drawMap(chunkX, chunkZ);
     }
 
-    function calculateNether() {
-      const x = parseInt(document.getElementById('xOver').value);
-      const z = parseInt(document.getElementById('zOver').value);
-      const result = document.getElementById('netherResult');
-
-      if (isNaN(x) || isNaN(z)) {
-        result.innerText = '좌표를 올바르게 입력하세요.';
-        return;
-      }
-
-      const netherX = Math.floor(x / 8);
-      const netherZ = Math.floor(z / 8);
-
-      result.innerHTML = `<strong>네더 좌표:</strong> (${netherX}, ${netherZ})`;
-    }
-
-    function calculateReverse() {
-      const x = parseInt(document.getElementById('xNether').value);
-      const z = parseInt(document.getElementById('zNether').value);
-      const result = document.getElementById('reverseResult');
-
-      if (isNaN(x) || isNaN(z)) {
-        result.innerText = '좌표를 올바르게 입력하세요.';
-        return;
-      }
-
-      const overworldX = x * 8;
-      const overworldZ = z * 8;
-
-      result.innerHTML = `<strong>오버월드 좌표:</strong> (${overworldX}, ${overworldZ})`;
-    }
-
-    function drawGrid(ctx, chunkX, chunkZ) {
-      const gridSize = 10;
-      const cellSize = 32;
-      const centerX = Math.floor(gridSize / 2);
-      const centerZ = Math.floor(gridSize / 2);
-
-      ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-
-      for (let x = 0; x < gridSize; x++) {
-        for (let z = 0; z < gridSize; z++) {
-          ctx.fillStyle = '#f0f0f0';
+    function drawMap(cx, cz) {
+      const ctx = document.getElementById('map').getContext('2d');
+      ctx.clearRect(0, 0, 320, 320);
+      const cell = 16 * zoom;
+      for (let x = -5; x <= 5; x++) {
+        for (let z = -5; z <= 5; z++) {
+          const px = 160 + (x * cell) + panX;
+          const pz = 160 + (z * cell) + panY;
           ctx.strokeStyle = '#ccc';
-          ctx.strokeRect(x * cellSize, z * cellSize, cellSize, cellSize);
-
-          if (x === centerX && z === centerZ) {
-            ctx.fillStyle = '#e53935';
-            ctx.fillRect(x * cellSize + 2, z * cellSize + 2, cellSize - 4, cellSize - 4);
+          ctx.strokeRect(px, pz, cell, cell);
+          if (x === 0 && z === 0) {
+            ctx.fillStyle = '#ff3b30';
+            ctx.fillRect(px + 2, pz + 2, cell - 4, cell - 4);
           }
         }
       }
     }
 
-    function handleCanvasClick(event) {
-      const canvas = document.getElementById('chunkCanvas');
-      const rect = canvas.getBoundingClientRect();
-      const x = Math.floor((event.clientX - rect.left) / 32);
-      const z = Math.floor((event.clientY - rect.top) / 32);
-
-      const offsetX = x - 5;
-      const offsetZ = z - 5;
-
-      const playerX = (offsetX + Math.floor(0)) * 16;
-      const playerZ = (offsetZ + Math.floor(0)) * 16;
-
-      document.getElementById('xChunk').value = playerX;
-      document.getElementById('zChunk').value = playerZ;
-      calculateChunk(playerX, playerZ);
+    function toNether() {
+      const x = parseInt(document.getElementById('overX').value);
+      const z = parseInt(document.getElementById('overZ').value);
+      if (!isNaN(x) && !isNaN(z)) {
+        document.getElementById('netherResult').innerText = `네더: (${Math.floor(x/8)}, ${Math.floor(z/8)})`;
+      }
     }
+
+    function toOverworld() {
+      const x = parseInt(document.getElementById('netherX').value);
+      const z = parseInt(document.getElementById('netherZ').value);
+      if (!isNaN(x) && !isNaN(z)) {
+        document.getElementById('netherResult').innerText = `오버월드: (${x*8}, ${z*8})`;
+      }
+    }
+
+    function saveCoords() {
+      const x = document.getElementById('x').value;
+      const z = document.getElementById('z').value;
+      if (!x || !z) return;
+      const history = JSON.parse(localStorage.getItem('coords') || '[]');
+      history.push({x, z});
+      localStorage.setItem('coords', JSON.stringify(history));
+    }
+
+    function loadCoords() {
+      const list = document.getElementById('coordList');
+      list.innerHTML = '';
+      const history = JSON.parse(localStorage.getItem('coords') || '[]');
+      history.slice(-10).reverse().forEach(({x, z}) => {
+        const li = document.createElement('li');
+        li.innerText = `X: ${x}, Z: ${z}`;
+        list.appendChild(li);
+      });
+    }
+
+    const canvas = document.getElementById('map');
+    let isDragging = false, lastX, lastY;
+    canvas.addEventListener('mousedown', e => {
+      isDragging = true;
+      lastX = e.offsetX;
+      lastY = e.offsetY;
+    });
+    canvas.addEventListener('mousemove', e => {
+      if (!isDragging) return;
+      const dx = e.offsetX - lastX;
+      const dy = e.offsetY - lastY;
+      panX += dx;
+      panY += dy;
+      lastX = e.offsetX;
+      lastY = e.offsetY;
+      calculateChunk();
+    });
+    canvas.addEventListener('mouseup', () => isDragging = false);
+    canvas.addEventListener('wheel', e => {
+      e.preventDefault();
+      zoom *= (e.deltaY < 0) ? 1.1 : 0.9;
+      zoom = Math.max(0.5, Math.min(4, zoom));
+      calculateChunk();
+    });
   </script>
 </body>
 </html>
